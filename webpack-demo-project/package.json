@@ -1,0 +1,15 @@
+{
+  "name": "webpack-demo-project",
+  "version": "1.0.0",
+  "description": "This test project is aimed at learn webpack for all and me.",
+  "scripts": {
+    "build": "webpack"
+  },
+  "keywords": [],
+  "author": "Han",
+  "license": "ISC",
+  "devDependencies": {
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
+  }
+}
