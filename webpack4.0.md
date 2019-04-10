@@ -2,7 +2,7 @@
 
 ## 一、初识webpack
 
-### 1.webpack 它究竟是什么？
+### 1. webpack 它究竟是什么？
 
 > 首先做一个简单的程序编写
 
@@ -229,7 +229,7 @@ index.html`
 
 
 
-### 2.webpack 的环境搭建
+### 2. webpack 的环境搭建
 
 - `webpack`是基于nodejs 环境工作的。所以，我们需要先下载 nodejs。
 
@@ -262,7 +262,7 @@ index.html`
 
 
 
-### 3.webpack 的配置文件
+### 3. webpack 的配置文件
 
 ​	之前我们用 `npx webpack index.js` 就可以打包了，但是如果不指定 index.js ，就不知道是哪个地址。
 
@@ -315,7 +315,317 @@ module.exports = {
 	>
 	>在 scripts 中的执行会先从 node_modules 目录下去查询是否有这条指令，如果没有才会调用全局的。
 
+## 二、loader 是什么？
+
+### 2.1 初识loader
+
+之前我们打包的都是 js 文件。假若，我们需要打包图片文件怎么办呢？
+
+```js
+var image = require('./1.jpg')	// 自行加入一张图片
+console.log(image)
+```
+
+这个时候再执行会报错。
+![报错信息](./images/3-01.jpg)
+
+​	意思是说模块解析失败，需要使用一个 loader 来处理这种后缀的文件类型。因此，我们需要去官网去找相应的文件处理类型。
+
+​	这里直接给出加载器名称叫 file-loader。 `npm install --save-dev file-loader`
+
+​	安装好后，在配置文件中配置规则。
+
+`webpack.config.js`
+
+```js
+module.exports = {
+    mode: 'development',
+    entry: './src/index.js',
+    output: {
+        filename: 'bundle.js'
+    },
+    module: {
+        rules: [
+            { test: /\.jpg$/, use: { loader: 'file-loader' } }
+        ]
+    }
+}
+```
+
+​	然后再运行 npm run build. 就可以得到结果了。
+
+![打包结果](./images/3-02.jpg)
 
 
 
+​	这里只做抛砖引玉。同理，png，svg等等其他图片类型的方式，相信也很容易知道了。所有图片都是通过 file-loader 进行解析的。所以，只需要在 test 的 正则表达式式中多加几个后缀即可。
 
+​	再发散学习一下，如果遇到 vue结尾的，其他后缀结尾的，只需要去找到相应的插件，根据上面的 rules 进行配置一个就可以配置了，是不是很简单呢？
+
+
+
+### 2.2 loader打包静态图片配置
+
+1. 打包后的文件被替换了名字，我们如何不改变名字以及扩展名呢？
+
+   除了下面标注的 [name].[ext] 两个占位符，还有什么呢？[详情参照官网](https://www.webpackjs.com/loaders/file-loader/)
+
+2. 如何指定打包后的位置？
+
+   会在dist/images下
+
+`webpack.config.js`
+
+```js
+module.exports = {
+    mode: 'development',
+    entry: './src/index.js',
+    output: {
+        filename: 'bundle.js'
+    },
+    module: {
+        rules: [
+            { test: /\.jpg$/,
+                use: {
+                    loader: 'file-loader'
+                    option: {
+                    	name: '[name].[ext]',	// 1.
+                    	outputPath: 'images/'	// 2.
+                	}
+            	}
+            }
+        ]
+    }
+}
+```
+
+ 3. 认识一个新朋友 url-loader
+
+    ​	url-loader 也是可以打包图片的，那 url-loader 和 file-loader 有什么区别呢？url-loader 其实是对 file-loader 的一个加强，底层对 file-loader 进行了一次再次封装。会对图片进行 base64 的格式处理，使图片的引入到 html 中，减少 http 请求。
+
+
+
+​	我们引入 url-loader 时，不需要引入 file-loader，因为它内部自行依赖了 file-loader, 不需要额外引入。
+
+​	`npm i url-loader -D`
+
+* limit 的意义：虽然说转化成 base64，可以减少请求。但是如果，图片特别大，那么 形成的 js也会变得格外的大，这样会影响页面的加载速度。因此，我们往往会对图片进行限制，如果图片的大小超过一定上限，就不进行 base64 格式转化。limit 的配置就是配置这个上限，单位是 bit。
+
+`webpack.config.js`
+
+```js
+module.exports = {
+    mode: 'development',
+    entry: './src/index.js',
+    output: {
+        filename: 'bundle.js'
+    },
+    module: {
+        rules: [
+            { test: /\.(jpe?g|png|gif)$/,
+                use: {
+                    loader: 'url-loader'
+                    option: {
+                    	name: '[name].[ext]',
+                    	outputPath: 'images/',
+                    	limit: 10000			//3.
+                	}
+            	}
+            }
+        ]
+    }
+}
+```
+
+
+
+### 2.3 loader打包样式配置
+
+ - <b>那我们想要打包 css ，我们应该怎么配置呢？</b>
+    - 首先，先不管原因的下载两个包。 `npm i style-loader css-loader -D`
+    - 在配置文件中引入，如下。
+
+`webpack.config.js`
+
+```js
+module.exports = {
+    mode: 'development',
+    entry: './src/index.js',
+    output: {
+        filename: 'bundle.js'
+    },
+    module: {
+        rules: [
+            {
+                test: /\.(jpe?g|png|gif)$/,
+                use: {
+                    loader: 'url-loader'
+                    option: {
+                    	name: '[name].[ext]',
+                    	outputPath: 'images/',
+                    	limit: 10000
+                	}
+            	}
+            },
+            {
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader']
+            }
+        ]
+    }
+}
+```
+
+这时候，我们可以随意编写一个css，并在 入口 js 文件中引入。就会发现有样式引入了。
+
+注意：
+
+> 引入的顺序不能写反。因为 loader 的使用是从后向前的。而工作流程是 css-loader 会把你引入的css模块进行结合打包。生成一个 css，然后 style-loader 对结合后的 css 注入到 header 中，所以要先用 css-loader，因此它要卸载后面。
+
+
+
+- <b>除了 css，那 sass , less , stylus 如何打包呢？</b>
+
+<strong>这里就只用 sass 为例了。</strong>
+
+>  我们通过官网发现，我们需要安装 node-sass  和  sass-loader 两个包。
+>
+> `npm i node-sass sass-loader -D`
+
+ `webpack.config.js`
+
+```js
+module.exports = {
+    mode: 'development',
+    entry: './src/index.js',
+    output: {
+        filename: 'bundle.js'
+    },
+    module: {
+        rules: [
+            {
+                test: /\.(jpe?g|png|gif)$/,
+                use: {
+                    loader: 'url-loader'
+                    option: {
+                    	name: '[name].[ext]',
+                    	outputPath: 'images/',
+                    	limit: 10000
+                	}
+            	}
+            },
+            {
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader']
+            },
+    		{
+                test: /\.css$/,
+                use: ['style-loader', 'css-loader', 'sass-loader']
+            },
+        ]
+    }
+}
+```
+
+
+
+- <b>浏览器有自己的样式前缀，我们如何加样式前缀呢？</b>
+
+  - 首先，安装 `npm i postcss-loader -D`
+
+  - 安装 `npm i autoprefixer -D` 这个插件
+
+  - ``` js
+    // 在根目录下添加一个 postcss.config.js 文件。内容如下。
+    module.exports = {
+      plugins: {
+        require('autoprefixer')
+      }
+    }
+    ```
+
+  - ``` js
+    // 在 webpack.config.js 文件中，添加 4 的位置
+    module.exports = {
+        mode: 'development',
+        entry: './src/index.js',
+        output: {
+            filename: 'bundle.js'
+        },
+        module: {
+            rules: [
+                {
+                    test: /\.(jpe?g|png|gif)$/,
+                    use: {
+                        loader: 'url-loader'
+                        option: {
+                        	name: '[name].[ext]',
+                        	outputPath: 'images/',
+                        	limit: 10000
+                    	}
+                	}
+                },
+                {
+                    test: /\.css$/,
+                    use: ['style-loader', 'css-loader']
+                },
+        		{
+                    test: /\.css$/,
+                    use: [
+        				'style-loader',
+                        'css-loader',
+                        'sass-loader',
+                        'post-loader'	// 4.
+                    ]
+                },
+            ]
+        }
+    }
+    ```
+
+> 官方给出 postcss-loader 的加载器。[详情](https://webpack.js.org/loaders/postcss-loader)
+
+#### 2.3.1 样式打包补充
+
+##### importLoaders
+
+##### module
+
+##### 字体文件
+
+
+
+### 2.4 dist 下生成 html —— HtmlWebpackPlugin
+
+#### 2.4.1 clean-webpack-plugin
+
+### 2.5 devtool
+
+### 2.6 devServer
+
+### 2.7 Babel
+
+- preset-env
+  - useBuiltIns: 'usage'	=> 	import '@babel/polyfill'
+- polyfill
+- transform-runtime
+
+## 三、webpack 高级配置
+
+### 3.1 Tree Shaking  (只支持 ES Module)
+
+- webpack.config.js 中 添加参数  optimization: { usedExports : true }
+- package.json 配置 “sideEffects”: false
+- P.S. 生产环境下 Tree Shaking 默认配置
+
+### 3.2 Development 和 Production 模式的区分打包
+
+### 3.3 webpack 和 Code Splitting
+
+- ``` js
+  optimization: {
+      splitChunks: {
+          chunks: 'all'
+      }
+  }
+  ```
