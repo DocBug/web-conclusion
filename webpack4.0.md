@@ -629,3 +629,231 @@ module.exports = {
       }
   }
   ```
+
+### 3.4 SplitChunksPlugin 配置
+
+- 需要官方动态加载包 `plugin-syntax-dynamic-import`
+- 动态加载前加入配置名字的注释 `import(/*webpackChunkName:'lodash'*/ 'lodash')`
+
+- .babelrc 下 plugins 项，引入 `@babel/plugin-syntax-dynamic-import`
+
+默认名会变成 `vendor~lodash.js`
+
+额外的更多配置点在 `webpack.config.js` 中的 <b>optimization</b> 项中
+
+```js
+module.exports = {
+    optimization: {
+        splitChunks: {
+            // .... 此处详情看官网对 SplitChunksPlugin 的详细配置，这里只写默认配置项
+            chunks: 'async',//(inital) 只对异步引入分割，all为同，异步都分割，但需配置cacheGroup
+            
+            
+            minSize: 30000,	// 引入大于这个值的字节数才会分割
+            maxSize: 0,	// 尝试对大于这个尺寸的代码进行进一步的代码分割，可能失败
+            minChunks: 1,	// 引入模块小于这个，不做代码分割
+            maxAsyncRequests: 5,	// 同时加载的模块数
+            maxInitialRequests: 3,	// 首页，或者入口文件加载时，入口文件引入的库最多分割多少个
+            automaticNameDetimiter: '~', // 组和文件之间，也就是生成的文件名中间的分割字符
+            name: true,	// 让cacheGroups 里面起的名字有效。
+            
+            // cacheGroups 比较核心
+            // 如果多个大于 minSize 的类库加载，会先存在一个缓存组里面，等所有的加载完才放入到一起
+            cacheGroups: {
+                vendors: {
+					test: /[\\/]node_modules[\\/]/,	// 这个影响 chunks 项的 all
+                    priority: -10,	// 打包优先级
+                	filename: 'vendors.js'
+                },
+                default: {
+                    minChunks: 2,
+                    priority: -10,	// 打包优先级
+                    reuseExistingChunk: true	// 如果一个模块被引入过，就不会再引用，而是用因如过的那个文件。
+                }
+            },
+        }
+    }
+}
+```
+
+### 3.5 Lazy-Loading，Chunk
+
+- 减少没被使用的包的加载量，当被使用时再去加载。
+- 提高首页加载速度(比如，vue-router)
+
+``` js
+module.exports = {
+    optimization: {
+        chunks: 'all',
+        minSize: 30000,
+        minChunks: 2,
+        maxAsyncRequests: 5,
+        maxInitalRequests: 3,
+        automaticNameDelimiter: '~',
+        name: true,
+        cacheGroup: {
+            vendors: {
+                test: /[\\/node_modules[\\/]/,
+                priority: -10
+            },
+            default: {
+                priority: -20,
+                reuseExistingChunk: true,
+                filename: 'common.js'
+            }
+        }
+    }
+}
+```
+
+### 3.6 打包分析，Preloading，Prefetching
+
+- webpack/analyee 对打包的内容进行分析。(脚本指令：`webpack --profile --json > stats.json`)
+- 除了官网的分析工具，其他的可以在官网的 guide => Code  Splitting => Bundle Analysis，有几种。
+
+- Preloading，Prefetching: 其实就是把我们之前优化的注意力从缓存移动到代码加载的时机和代码覆盖率上
+- 他们的区别就是 loading 会跟着核心进程一起加载，fetching 会等核心进程都加载完毕再加载。
+
+### 3.7 CSS 文件的代码分割
+
+```js
+module.exports = {
+    output: {
+        filename: '[name].js',
+        chunkFilename: '[name].chunk.js',	// 经常看到这个的意义是什么
+        path: path.resolve(__dirname, '../dist')
+    }
+}
+```
+
+> 在官网找到 MiniCssExtractPlugin 插件
+
+这样就可以单独生成 css，而不是 css in js
+
+> 压缩css的插件 optimize-css-assets-webpack-plugin 
+
+### 3.8 webpack 与 浏览器缓存
+
+```js
+// 核心就是 [contenthash]
+module.exports = {
+    output: {
+        filename: '[name].[contenthash].js',
+        chunkFilename: '[name].[contenthash].js
+    },
+    
+    opitmization: {
+        // 新版本，多个js文件，只有修改过的js的代码的hash值会变更，兼容老版本的话需要配置
+        runtimeChunk: {
+			name: 'runtime'
+        }
+	}
+}
+
+```
+
+### 3.9 Shimming
+
+```js
+const webpack = require('webpack')
+module.exports = {
+    plugins: [
+        new webpack.ProvidePlugin({
+           $: 'jquery' 
+        }),
+    ]
+}
+```
+
+> imports-loader : 让每个模块的 this 指向发生变更
+
+```js
+module.exports = {
+    module: {
+        rules: [{
+            test: /\.js$/,
+            exclude: /node-modules/,
+            use: [
+                {
+                    loader: 'babel-loader'
+                },
+                {
+                    loader: 'imports-loader?this=>window'	// 这里就可以了。
+                }
+            ]
+        }]
+    }
+}
+```
+
+## 四、Library 打包
+
+### 4.1 打包一个函数库，给别人用，如何打包？
+
+> 
+>
+> - output 项有一个 libraryTarget 属性，可以配置 "umd"，这个配置可以支持 CMD，AMD，ES6
+>   - 还可以配置一个 library 选项，解决 script标签调用的方式
+
+### 4.2 你的库依赖某个模块，用户也引用了同一模块，怎么去除重复引用？
+
+> module.export 的输出对象中有个 externals 属性。
+
+例如： ` module.exports = { externals : ["lodash"] }`
+
+### 4.3 发布库到 npm
+
+> 1. 首先需要在 npm 上注册账号
+> 2. 在cmd 中， 调用 `npm adduser` 添加用户
+> 3. `npm publish` 来发布库
+> 4. 别人就可以通过 `npm i [你的库名称来下载了]`
+
+P.S. 你的库名，在 package.json 里面的 name 字段内。main 字段表示，库中的哪个文件为使用库文件
+
+### 4.4 PWA === progressoive web application
+
+ 所需插件 `workbox-webpack-plugin`
+
+```js
+plugins: [
+    new WorkboxPlugin.GenerateSW({
+        clientsClaim: true,
+        skipWaiting: true
+    })
+]
+```
+
+### 4.5 TS 的打包配置
+
+loader: `ts-loader`
+
+json: `tsconfig.json`
+
+``` js
+// 常用配置 tsconfig.json
+{
+    "compilerOptions": {
+        "outDir": "./dist",
+        "module": "es6",
+        "target": "es5",    
+        "allowJs": "true"	// 允许引入 js 文件
+    }
+}
+```
+
+> 需要解决的一些引用场景。
+>
+> 上面的基本配置完成后，只能保证自己编写的代码的入参等，会检查类型。第三方库的则不会检查。如何在使用第三方库(lodash)的时候，也可以有有效的参数传递呢？
+>
+> ====>  需要依赖第三方库所需要的 ts库，例如，lodash 的ts库为  `@types/lodash`
+
+### 4.6 使用 webpackDevServer 实现请求转发
+
+```js
+devServer: {
+    proxy: {}	// 直接看文档就好了，不难
+}
+```
+
+
+
